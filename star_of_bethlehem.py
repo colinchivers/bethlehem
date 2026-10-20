@@ -29,6 +29,9 @@ MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec
 SEP = "=" * 72
 _1M = 1.0 / 60.0       # 1 arcminute in degrees
 _JV_WINDOW = 6 * _1M   # 6 arcminutes threshold for extended window reporting
+_R_JUP_EQ_KM  = 71492.0   # IAU 2015 equatorial radius (1 bar level)
+_R_JUP_POL_KM = 66854.0   # IAU 2015 polar radius
+_R_VEN_KM     = 6051.8    # IAU 2015 mean radius (solid surface)
 _JER_LON = 35.2137     # Jerusalem east longitude, degrees
 _COMPASS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
 
@@ -89,6 +92,11 @@ class Ctx:
 # ---------------------------------------------------------------------------
 # Vectorised helpers
 # ---------------------------------------------------------------------------
+
+def ang_diam_arcsec(radius_km, dist_km):
+    """Apparent angular diameter in arcseconds of a sphere of given radius."""
+    return 2 * np.degrees(np.arcsin(radius_km / dist_km)) * 3600
+
 
 def ecl_lon_arr(ctx, site, body, times):
     """Ecliptic longitude array (°) for body from earth+site, apparent."""
@@ -267,6 +275,19 @@ def event_1_jv_conjunctions(ctx):
         moon_elong = elong_arr(ctx, ctx.jerusalem, ctx.moon, t1)[0]
         moon_illum = (1 - np.cos(np.radians(moon_elong))) / 2 * 100
 
+        def _print_diams(app_jup, app_ven, sep_deg):
+            d_jup = app_jup.distance().km
+            d_ven = app_ven.distance().km
+            jup_eq  = ang_diam_arcsec(_R_JUP_EQ_KM,  d_jup)
+            jup_pol = ang_diam_arcsec(_R_JUP_POL_KM, d_jup)
+            ven_d   = ang_diam_arcsec(_R_VEN_KM,     d_ven)
+            gap = sep_deg * 3600 - (jup_eq + ven_d) / 2
+            print(f"    Jupiter diameter : {jup_eq:.2f}″ equatorial, {jup_pol:.2f}″ polar"
+                  f"   (dist {d_jup / 1.495978707e8:.4f} AU)")
+            print(f"    Venus   diameter : {ven_d:.2f}″"
+                  f"   (dist {d_ven / 1.495978707e8:.4f} AU)")
+            print(f"    Limb-to-limb gap : {gap:.2f}″  (centre sep {sep_deg * 3600:.2f}″)")
+
         def _window(site, zv, threshold):
             below = zv < threshold
             if not np.any(below):
@@ -292,6 +313,7 @@ def event_1_jv_conjunctions(ctx):
         print(f"    Closest approach : {fmt(t_jv_jer, hhmm=True)}")
         print(f"    Local solar time : {_lst_str(t_jv_jer, 35.2137)}")
         print(f"    Separation       : {zv_jer[mi_jer]*60:.3f}′  ({zv_jer[mi_jer]:.5f}°)")
+        _print_diams(app_jup_jer, app_ven_jer, zv_jer[mi_jer])
         print(f"    Jupiter ecl lon  : {jup_lon_c:.3f}°   lat: {jup_lat_c:+.3f}°")
         print(f"    Venus   ecl lon  : {ven_lon_c:.3f}°   lat: {ven_lat_c:+.3f}°")
         print(f"    Jupiter elong    : {elong_c:.2f}° from Sun")
@@ -316,6 +338,7 @@ def event_1_jv_conjunctions(ctx):
         print(f"    Closest approach : {fmt(t_jv_bab, hhmm=True)}")
         print(f"    Local solar time : {_lst_str(t_jv_bab, 44.4215)}")
         print(f"    Separation       : {zv_bab[mi_bab]*60:.3f}′  ({zv_bab[mi_bab]:.5f}°)")
+        _print_diams(app_jup_bab, app_ven_bab, zv_bab[mi_bab])
         print("    Altitude at conjunction:")
         print(f"      Jupiter : alt {alt_jup_bab.degrees:+6.2f}°   az {az_jup_bab.degrees:6.2f}°")
         print(f"      Venus   : alt {alt_ven_bab.degrees:+6.2f}°   az {az_ven_bab.degrees:6.2f}°")
